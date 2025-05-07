@@ -1,18 +1,11 @@
-# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
-
-# COCO128-seg dataset https://www.kaggle.com/datasets/ultralytics/coco128 (first 128 images from COCO train2017) by Ultralytics
-# Documentation: https://docs.ultralytics.com/datasets/segment/coco/
-# Example usage: yolo train data=coco128.yaml
-# parent
-# ├── ultralytics
-# └── datasets
-#     └── coco128-seg  ← downloads here (7 MB)
+# COCO Small Objects dataset
+# This is a modified COCO configuration that focuses on small objects
 
 # Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
-path: /media/genadiy/C/data/coco128-seg # dataset root dir
-train: images/train2017 # train images (relative to 'path') 128 images
-val: images/train2017 # val images (relative to 'path') 128 images
-test: # test images (optional)
+path: /home/genadiy/datasets/coco  # dataset root dir (change this to your actual COCO path)
+train: train2017.txt  # train images
+val: val2017.txt  # val images
+test: test-dev2017.txt  # test images (optional)
 
 # Classes
 names:
@@ -97,5 +90,12 @@ names:
   78: hair drier
   79: toothbrush
 
-# Download script/URL (optional)
-download: https://github.com/ultralytics/assets/releases/download/v0.0.0/coco128-seg.zip
+# Small objects focus training configuration
+small_objects: true  # Indicates this dataset is configured for small object detection
+min_area: 0  # Minimum area of objects to include (0 = include all)
+max_area: 1024  # Maximum area of objects to include (32x32 pixels)
+small_object_classes: [9, 10, 11, 12, 24, 25, 26, 27, 32, 33, 34, 35, 39, 40, 41, 42, 43, 44, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 64, 65, 66, 67, 74, 75, 76, 77, 78, 79]  # Classes with predominantly small objects
+
+# Special training settings for small objects
+img_size: 1024  # Higher resolution for better small object detection
+mosaic_prob: 0.7  # Slightly reduced mosaic augmentation to preserve small objects 

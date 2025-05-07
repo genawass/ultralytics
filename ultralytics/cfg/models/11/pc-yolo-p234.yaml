@@ -1,0 +1,47 @@
+# PC-YOLO: YOLO with Coordinate-Spatial Attention and P2-P3-P4 Detection Head
+# Based on YOLO11 with s scaling for small object detection
+
+# Parameters
+nc: 80  # number of classes
+scales:  # model compound scaling constants
+  s: [0.50, 0.50, 1024]  # [depth, width, max_channels]
+
+# Backbone with CSA modules
+backbone:
+  # [from, repeats, module, args]
+  - [-1, 1, Conv, [64, 3, 2]]  # 0-P1/2
+  - [-1, 1, Conv, [128, 3, 2]]  # 1-P2/4
+  - [-1, 2, CSA_C3k2, [128, False]]  # 2
+  - [-1, 1, Conv, [256, 3, 2]]  # 3-P3/8
+  - [-1, 2, CSA_C3k2, [256, False]]  # 4
+  - [-1, 1, Conv, [512, 3, 2]]  # 5-P4/16
+  - [-1, 2, CSA_C3k2, [512, False]]  # 6
+  - [-1, 1, Conv, [1024, 3, 2]]  # 7-P5/32
+  - [-1, 2, C3k2, [1024]]  # 8
+  - [-1, 1, CSA_SPPF, [1024, 5]]  # 9
+  - [-1, 1, CSA_C2PSA, [1024]]  # 10
+
+# Head with P2 added and P5 removed
+head:
+  # Upsample from P5/32 to P4/16
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]
+  - [[-1, 6], 1, Concat, [1]]  # cat backbone P4
+  - [-1, 2, CSA_C3k2, [512, False]]  # 13
+
+  # Upsample from P4/16 to P3/8
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]
+  - [[-1, 4], 1, Concat, [1]]  # cat backbone P3
+  - [-1, 2, CSA_C3k2, [256, False]]  # 16 (P3/8-medium)
+
+  # Upsample from P3/8 to P2/4
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]
+  - [[-1, 2], 1, Concat, [1]]  # cat backbone P2
+  - [-1, 2, CSA_C3k2, [128, False]]  # 19 (P2/4-small)
+
+  # P3/8 -> P4/16 route
+  - [16, 1, Conv, [256, 3, 2]]
+  - [[-1, 13], 1, Concat, [1]]  # cat head P4
+  - [-1, 2, CSA_C3k2, [512, False]]  # 22 (P4/16-large)
+
+  # Detect at P2/4, P3/8, P4/16 (no P5)
+  - [[19, 16, 22], 1, Detect, [nc]]  # Detect(P2, P3, P4) 

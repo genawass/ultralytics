@@ -1,0 +1,58 @@
+# PC-YOLO11s Configuration (derived from YOLOv11n)
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+
+# Parameters
+nc: 80 # number of classes
+scales: # model compound scaling constants, i.e. 'model=yolo11n.yaml' will call yolo11.yaml with scale 'n'
+  # [depth, width, max_channels]
+  # Values for 'n' scale are used below (depth_multiple=0.50, width_multiple=0.25)
+  n: [0.50, 0.25, 1024]
+  s: [0.50, 0.50, 1024]
+  m: [0.50, 1.00, 512]
+  l: [1.00, 1.00, 512]
+  x: [1.00, 1.50, 512]
+
+# PC-YOLO11s backbone (based on YOLOv11n with CSA modifications)
+# n_scale_depth_multiple = 0.50
+# n_scale_width_multiple = 0.25
+backbone:
+  # [from, repeats, module, args(c_out_scaled, n_repeats_scaled, other_args...)]
+  - [-1, 1, Conv, [16, 3, 2]]           # 0-P1/2 (64*0.25=16)
+  - [-1, 1, Conv, [32, 3, 2]]           # 1-P2/4 (128*0.25=32) <- P2 source for head
+  - [-1, 1, CSA_C3k2_F, [64, 1, 0.25]]  # 2 (c2=256*0.25=64, n=max(1,int(2*0.5))=1, e=0.25)
+  - [-1, 1, Conv, [64, 3, 2]]           # 3-P3/8 (256*0.25=64) <- P3 source for head
+  - [-1, 1, CSA_C3k2_F, [128, 1, 0.25]] # 4 (c2=512*0.25=128, n=max(1,int(2*0.5))=1, e=0.25)
+  - [-1, 1, Conv, [128, 3, 2]]          # 5-P4/16 (512*0.25=128) <- P4 source for head
+  - [-1, 1, C3k2, [128, True, 0.5]]     # 6 (c2=512*0.25=128, n=max(1,int(2*0.5))=1, e=0.5 for C3k2 True) No CSA
+  - [-1, 1, Conv, [256, 3, 2]]          # 7-P5/32 (1024*0.25=256)
+  - [-1, 1, C3k2, [256, True, 0.5]]     # 8 (c2=1024*0.25=256, n=max(1,int(2*0.5))=1, e=0.5 for C3k2 True) No CSA
+  - [-1, 1, CSA_SPPF, [256, 5]]         # 9 (c_out=1024*0.25=256, k=5)
+  - [-1, 1, C2PSA, [256]]               # 10 (channels=1024*0.25=256). Assuming C2PSA repeats=2, so n=max(1,int(2*0.5))=1.
+                                        # Original YOLOv11n has C2PSA repeats=2.
+
+# PC-YOLO11s head (P2, P3, P4 outputs)
+head:
+  # Upsample path for P4 features
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]    # 11 (Input from layer 10 - C2PSA output: 256 ch)
+  - [[-1, 6], 1, Concat, [1]]                     # 12 (cat with backbone P4 - layer 6 output: 128 ch. Total: 256+128=384 ch)
+  - [-1, 1, CSA_C3k2_F, [128, 1, 0.5]]          # 13 (P4_neck_out. c1=384, c2=512*0.25=128, n=max(1,int(2*0.5))=1, e=0.5)
+
+  # Upsample path for P3 features
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]    # 14 (Input from layer 13 - P4_neck_out: 128 ch)
+  - [[-1, 4], 1, Concat, [1]]                     # 15 (cat with backbone P3 - layer 4 output: 128 ch. Total: 128+128=256 ch)
+  - [-1, 1, CSA_C3k2_F, [64, 1, 0.5]]           # 16 (P3_detect_out. c1=256, c2=256*0.25=64, n=max(1,int(2*0.5))=1, e=0.5)
+
+  # Upsample path for P2 features (New for PC-YOLO)
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]    # 17 (Input from layer 16 - P3_detect_out: 64 ch)
+  - [[-1, 2], 1, Concat, [1]]                     # 18 (cat with backbone P2 - layer 2 output: 64 ch. Total: 64+64=128 ch)
+  - [-1, 1, CSA_C3k2_F, [32, 1, 0.5]]           # 19 (P2_detect_out. c1=128, c2=128*0.25=32, n=max(1,int(original_repeats_for_this_block_if_any*0.5))=1, e=0.5)
+                                                # Assuming this new block also has n=1 for 's' scale.
+
+  # Downsample path for P3 features to create P4 detection features
+  - [16, 1, Conv, [64, 3, 2]]                   # 20 (Downsample P3_detect_out from layer 16: 64 ch -> 64 ch)
+  - [[-1, 13], 1, Concat, [1]]                    # 21 (cat with P4_neck_out from layer 13: 128 ch. Total: 64+128=192 ch)
+  - [-1, 1, CSA_C3k2_F, [128, 1, 0.5]]          # 22 (P4_detect_out. c1=192, c2=512*0.25=128, n=max(1,int(2*0.5))=1, e=0.5)
+
+  # Detect layer for P2, P3, P4
+  # Inputs from P2_detect_out (layer 19), P3_detect_out (layer 16), P4_detect_out (layer 22)
+  - [[19, 16, 22], 1, Detect, [nc]]              # Detect(P2, P3, P4)

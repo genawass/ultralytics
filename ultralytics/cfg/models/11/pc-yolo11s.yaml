@@ -1,0 +1,42 @@
+# PC-YOLO11s: Minimal modification with only one CSA module
+# Based on YOLO11 with just one CSA_C3k2 module for testing
+
+# Parameters
+nc: 80  # number of classes
+scales:  # model compound scaling constants
+  s: [0.50, 0.50, 1024]  # [depth, width, max_channels]
+
+# Backbone - completely standard
+backbone:
+  # [from, repeats, module, args]
+  - [-1, 1, Conv, [64, 3, 2]]  # 0-P1/2
+  - [-1, 1, Conv, [128, 3, 2]]  # 1-P2/4
+  - [-1, 2, C3k2, [128]]  # 2
+  - [-1, 1, Conv, [256, 3, 2]]  # 3-P3/8
+  - [-1, 2, C3k2, [256]]  # 4
+  - [-1, 1, Conv, [512, 3, 2]]  # 5-P4/16
+  - [-1, 2, C3k2, [512]]  # 6
+  - [-1, 1, Conv, [1024, 3, 2]]  # 7-P5/32
+  - [-1, 2, C3k2, [1024]]  # 8
+  - [-1, 1, SPPF, [1024, 5]]  # 9
+  - [-1, 1, C2PSA, [1024]]  # 10
+
+# Head - standard except for one CSA_C3k2 module
+head:
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]
+  - [[-1, 6], 1, Concat, [1]]  # cat backbone P4
+  - [-1, 2, C3k2, [512]]  # 13
+
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]
+  - [[-1, 4], 1, Concat, [1]]  # cat backbone P3
+  - [-1, 2, C3k2, [256]]  # 16 (P3/8-small)
+
+  - [-1, 1, Conv, [256, 3, 2]]
+  - [[-1, 13], 1, Concat, [1]]  # cat head P4
+  - [-1, 2, CSA_C3k2, [768]]  # 19 (P4/16-medium) - Using CSA module here with 768 (256+512) input channels
+
+  - [-1, 1, Conv, [512, 3, 2]]
+  - [[-1, 10], 1, Concat, [1]]  # cat head P5
+  - [-1, 2, C3k2, [1024]]  # 22 (P5/32-large)
+
+  - [[16, 19, 22], 1, Detect, [nc]]  # Detect(P3, P4, P5) 
