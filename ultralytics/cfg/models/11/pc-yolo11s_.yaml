@@ -48,12 +48,12 @@ head:
   - [-1, 1, CSA_C3k2_F, [128, 1, 0.5]]   # <-- P2
 
   # Block 4: Conv (downsample) → Concat with Block 2 → CSA_C3k2  (outputs P3)
-  - [-1, 1, Conv, [256, 3, 2]]
+  - [-1, 1, Conv, [128, 3, 2]]
   - [[-1, 16], 1, Concat, [1]]
   - [-1, 1, CSA_C3k2_F, [256, 1, 0.5]]   # <-- P3
 
   # Block 5: Conv (downsample) → Concat with Block 1 → CSA_C3k2  (outputs P4)
-  - [-1, 1, Conv, [512, 3, 2]]
+  - [-1, 1, Conv, [256, 3, 2]]
   - [[-1, 13], 1, Concat, [1]]
   - [-1, 1, CSA_C3k2_F, [512, 1, 0.5]]   # <-- P4
 
