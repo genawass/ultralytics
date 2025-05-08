@@ -39,6 +39,6 @@ results = model.train(
     data="/media/genadiy/C/data/VisDrone/data.yaml", 
     epochs=100, 
     deterministic=False,
-    mgsz=480)
+    imgsz=240)
 
 #metrics = model.val(data="coco2.yaml")
