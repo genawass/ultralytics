@@ -55,13 +55,7 @@ def test_detect():
 
     overrides["resume"] = trainer.last
     trainer = detect.DetectionTrainer(overrides=overrides)
-    try:
-        trainer.train()
-    except Exception as e:
-        print(f"Expected exception caught: {e}")
-        return
-
-    Exception("Resume test failed!")
+    trainer.train()  # Resume training, should pass if no exception occurs
 
 
 def test_segment():
@@ -94,13 +88,7 @@ def test_segment():
     # Test resume
     overrides["resume"] = trainer.last
     trainer = segment.SegmentationTrainer(overrides=overrides)
-    try:
-        trainer.train()
-    except Exception as e:
-        print(f"Expected exception caught: {e}")
-        return
-
-    Exception("Resume test failed!")
+    trainer.train()  # Resume training, should pass if no exception occurs
 
 
 def test_classify():
